@@ -24,6 +24,7 @@ namespace UniGame.UniBuild.Editor
         public BuildProfile buildProfile;
         public BuildTarget buildTarget;
         public BuildTargetGroup buildTargetGroup;
+        /// <summary>Standalone subtarget for this build without changing the active Editor subtarget.</summary>
         public StandaloneBuildSubtarget standaloneBuildSubtarget;
         public ScriptingImplementation scriptingImplementation = ScriptingImplementation.Mono2x;
 
@@ -58,6 +59,7 @@ namespace UniGame.UniBuild.Editor
         {
             _buildData = buildData;
             _arguments = arguments;
+            standaloneBuildSubtarget = buildData.standaloneBuildSubTarget;
         }
 
         public void Execute()
@@ -288,12 +290,10 @@ namespace UniGame.UniBuild.Editor
                 outputFolder = windowsPath;
             }
 
-            standaloneBuildSubtarget = EditorUserBuildSettings.standaloneBuildSubtarget;
             if (arguments.GetEnumValue<StandaloneBuildSubtarget>(
                     BuildArguments.StandaloneBuildSubTargetKey,out var subTarget))
             {
                 standaloneBuildSubtarget = subTarget;
-                EditorUserBuildSettings.standaloneBuildSubtarget = subTarget;
             }
             
             if (arguments.GetEnumValue<BuildEnvironmentType>(
