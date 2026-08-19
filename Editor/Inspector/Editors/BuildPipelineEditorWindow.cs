@@ -1941,47 +1941,18 @@ namespace UniGame.UniBuild.Editor.Inspector.Editors
                 var startTime = EditorApplication.timeSinceStartup;
                 var executionState = new PipelineExecutionState(_selectedPipeline.name);
 
-            var config = UniBuildPipelineTool.CreateConfiguration(_selectedPipeline.BuildData);
-
-            // Execute pre-build commands
-            foreach (var step in _selectedPipeline.preBuildCommands)
-            {
-                foreach (var command in step.GetCommands())
+                var report = UniBuildPipelineTool.ExecuteBuild(_selectedPipeline);
+                if (_selectedPipeline.PlayerBuildEnabled &&
+                    (report == null || report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded))
                 {
-                    if (!command.IsActive) continue;
-
-                    try
-                    {
-                        command.Execute(config);
-                        executionState.AddStepExecution(command.Name, true);
-                    }
-                    catch (Exception ex)
-                    {
-                        executionState.AddStepExecution(command.Name, false, ex.Message);
-                        throw;
-                    }
+                    var result = report == null ? "no BuildReport" : report.summary.result.ToString();
+                    throw new InvalidOperationException($"Player build failed: {result}");
                 }
-            }
 
-            // Execute post-build commands
-            foreach (var step in _selectedPipeline.postBuildCommands)
-            {
-                foreach (var command in step.GetCommands())
-                {
-                    if (!command.IsActive) continue;
+                executionState.AddStepExecution(
+                    _selectedPipeline.PlayerBuildEnabled ? "Player Build" : "Commands", true);
 
-                    try
-                    {
-                        command.Execute(config);
-                        executionState.AddStepExecution(command.Name, true);
-                    }
-                    catch (Exception ex)
-                    {
-                        executionState.AddStepExecution(command.Name, false, ex.Message);
-                        throw;
-                    }
-                }
-            }                var executionTime = (float)(EditorApplication.timeSinceStartup - startTime);
+                var executionTime = (float)(EditorApplication.timeSinceStartup - startTime);
                 executionState.SetExecutionTime(executionTime);
                 executionState.SetResult(true);
 
@@ -1991,7 +1962,8 @@ namespace UniGame.UniBuild.Editor.Inspector.Editors
                     _executionHistory.RemoveAt(0);
                 }
 
-                UpdateStatusLabel($"✓ Pipeline executed successfully ({executionTime:F2}s)");
+                var action = _selectedPipeline.PlayerBuildEnabled ? "built" : "executed";
+                UpdateStatusLabel($"✓ Pipeline {action} successfully ({executionTime:F2}s)");
             }
             catch (Exception ex)
             {
