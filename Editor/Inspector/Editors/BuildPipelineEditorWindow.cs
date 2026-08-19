@@ -1682,7 +1682,7 @@ namespace UniGame.UniBuild.Editor.Inspector.Editors
             {
                 UpdateStatusLabel($"Executing: {command.Name}...");
 
-                var config = new EditorBuildConfiguration(null, null);
+                var config = UniBuildPipelineTool.CreateConfiguration(_selectedPipeline.BuildData);
                 command.Execute(config);
 
                 UpdateStatusLabel($"✓ Executed: {command.Name}");
@@ -1941,7 +1941,7 @@ namespace UniGame.UniBuild.Editor.Inspector.Editors
                 var startTime = EditorApplication.timeSinceStartup;
                 var executionState = new PipelineExecutionState(_selectedPipeline.name);
 
-            var config = new EditorBuildConfiguration(null, null);
+            var config = UniBuildPipelineTool.CreateConfiguration(_selectedPipeline.BuildData);
 
             // Execute pre-build commands
             foreach (var step in _selectedPipeline.preBuildCommands)
