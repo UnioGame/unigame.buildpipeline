@@ -178,7 +178,7 @@ namespace UniGame.UniBuild.Editor
 #endif
         public void ExecuteBuild()
         {
-            UniBuildPipelineTool.ExecuteBuild(this);
+            UniBuildPipelineTool.RequestBuild(this);
         }
         
 #if  ODIN_INSPECTOR || TRI_INSPECTOR
@@ -194,9 +194,7 @@ namespace UniGame.UniBuild.Editor
 #endif
         public void ExecuteAndRunBuild()
         {
-            var commandsMap = Instantiate(this);
-            commandsMap.buildData.buildOptions |= BuildOptions.AutoRunPlayer;
-            UniBuildPipelineTool.ExecuteBuild(commandsMap);
+            UniBuildPipelineTool.RequestBuild(this, true);
         }
         
 #if ODIN_INSPECTOR

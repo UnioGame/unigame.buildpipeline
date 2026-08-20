@@ -114,6 +114,7 @@ UniGame.UniBuild fully supports **Unity 6 Build Profiles** system:
 
 - **Profile Integration**: Each Build Profile can have its own pipeline configuration
 - **Automatic Activation**: Build Profiles are automatically activated when executing pipelines
+- **Profile-native Builds**: Profile pipelines use Unity's `BuildPlayerWithProfileOptions` API
 - **Profile-Specific Commands**: Configure different commands for different profiles
 - **Consistent Naming**: Pipeline configurations follow Build Profile naming conventions
 - **Seamless Workflow**: Works alongside Unity's native Build Profile system without conflicts
@@ -123,7 +124,9 @@ UniGame.UniBuild fully supports **Unity 6 Build Profiles** system:
 1. Create or select a Build Profile in Unity Editor (Window → Build Profile)
 2. Create a pipeline configuration that matches your profile strategy
 3. Configure commands to work with the active Build Profile
-4. When running the pipeline, it automatically respects the current profile settings
+4. When running the pipeline, UniBuild activates the linked profile and automatically continues after any domain reload
+
+In batch mode, start Unity with the required `-activeBuildProfile`. UniBuild does not switch profiles from inside a synchronous batch build.
 
 ## Core Architecture
 

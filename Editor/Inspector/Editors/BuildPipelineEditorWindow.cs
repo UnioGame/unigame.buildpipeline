@@ -75,6 +75,12 @@ namespace UniGame.UniBuild.Editor.Inspector.Editors
         {
             _settings = BuildPipelineInspectorSettings.instance;
             CollectCommandMetadata();
+            UniBuildPipelineTool.ExecutionFinished += OnPipelineExecutionFinished;
+        }
+
+        private void OnDisable()
+        {
+            UniBuildPipelineTool.ExecutionFinished -= OnPipelineExecutionFinished;
         }
 
         private void CreateGUI()
@@ -1936,40 +1942,63 @@ namespace UniGame.UniBuild.Editor.Inspector.Editors
 
             try
             {
-                UpdateStatusLabel($"Executing pipeline: {_selectedPipeline.name}...");
-
-                var startTime = EditorApplication.timeSinceStartup;
-                var executionState = new PipelineExecutionState(_selectedPipeline.name);
-
-                var report = UniBuildPipelineTool.ExecuteBuild(_selectedPipeline);
-                if (_selectedPipeline.PlayerBuildEnabled &&
-                    (report == null || report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded))
+                var result = UniBuildPipelineTool.RequestBuild(_selectedPipeline);
+                if (result.Status == UniBuildExecutionStatus.Scheduled)
                 {
-                    var result = report == null ? "no BuildReport" : report.summary.result.ToString();
-                    throw new InvalidOperationException($"Player build failed: {result}");
+                    UpdateStatusLabel($"Switching Build Profile for {_selectedPipeline.name}; build scheduled...");
+                    return;
                 }
-
-                executionState.AddStepExecution(
-                    _selectedPipeline.PlayerBuildEnabled ? "Player Build" : "Commands", true);
-
-                var executionTime = (float)(EditorApplication.timeSinceStartup - startTime);
-                executionState.SetExecutionTime(executionTime);
-                executionState.SetResult(true);
-
-                _executionHistory.Add(executionState);
-                if (_executionHistory.Count > _settings.MaxHistorySize)
-                {
-                    _executionHistory.RemoveAt(0);
-                }
-
-                var action = _selectedPipeline.PlayerBuildEnabled ? "built" : "executed";
-                UpdateStatusLabel($"✓ Pipeline {action} successfully ({executionTime:F2}s)");
+                CompletePipelineExecution(result);
             }
             catch (Exception ex)
             {
                 UpdateStatusLabel($"✗ Pipeline execution failed: {ex.Message}");
                 Debug.LogError($"Pipeline execution error: {ex}", _selectedPipeline);
             }
+        }
+
+        private void OnPipelineExecutionFinished(UniBuildExecutionResult result)
+        {
+            try
+            {
+                CompletePipelineExecution(result);
+            }
+            catch (Exception exception)
+            {
+                UpdateStatusLabel($"✗ Pipeline execution failed: {exception.Message}");
+                Debug.LogError($"Pipeline execution error: {exception}", _selectedPipeline);
+            }
+        }
+
+        private void CompletePipelineExecution(UniBuildExecutionResult result)
+        {
+            if (result.Exception != null)
+                throw result.Exception;
+
+            var playerBuildEnabled = result.PlayerBuildEnabled;
+            if (playerBuildEnabled && (result.Report == null || result.Report.summary.result !=
+                UnityEditor.Build.Reporting.BuildResult.Succeeded))
+            {
+                var buildResult = result.Report == null
+                    ? "no BuildReport"
+                    : result.Report.summary.result.ToString();
+                throw new InvalidOperationException(
+                    $"Player build failed: {buildResult}");
+            }
+
+            var executionTime = result.Report == null
+                ? 0f
+                : (float)result.Report.summary.totalTime.TotalSeconds;
+            var executionState = new PipelineExecutionState(result.PipelineName);
+            executionState.AddStepExecution(playerBuildEnabled ? "Player Build" : "Commands", true);
+            executionState.SetExecutionTime(executionTime);
+            executionState.SetResult(true);
+            _executionHistory.Add(executionState);
+            if (_executionHistory.Count > _settings.MaxHistorySize)
+                _executionHistory.RemoveAt(0);
+
+            var action = playerBuildEnabled ? "built" : "executed";
+            UpdateStatusLabel($"✓ Pipeline {action} successfully ({executionTime:F2}s)");
         }
 
         private void ShowCreatePipelineDialog()

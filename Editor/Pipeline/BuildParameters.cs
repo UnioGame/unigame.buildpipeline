@@ -65,11 +65,6 @@ namespace UniGame.UniBuild.Editor
         public void Execute()
         {
             buildProfile = _buildData.useBuildProfile ? _buildData.buildProfile : null;
-
-            if (buildProfile != null)
-            {
-                BuildProfile.SetActiveBuildProfile(buildProfile);
-            }
             
             var buildArguments = _buildData.buildArguments;
             if (buildArguments.isEnable)
@@ -118,30 +113,34 @@ namespace UniGame.UniBuild.Editor
                 }
             }
             
-            var namedTarget = standaloneBuildSubtarget is 
-                StandaloneBuildSubtarget.Player or
+            if (buildProfile == null)
+            {
+                var namedTarget = standaloneBuildSubtarget is
+                    StandaloneBuildSubtarget.Player or
 #if UNITY_2023_1_OR_NEWER
-                StandaloneBuildSubtarget.Default
+                    StandaloneBuildSubtarget.Default
 #else
-                StandaloneBuildSubtarget.NoSubtarget
+                    StandaloneBuildSubtarget.NoSubtarget
 #endif
-                ? NamedBuildTarget.Standalone
-                : NamedBuildTarget.Server;
+                    ? NamedBuildTarget.Standalone
+                    : NamedBuildTarget.Server;
 
-            PlayerSettings.SetScriptingBackend(namedTarget, scriptingImplementation);
-            PlayerSettings.SetIl2CppCodeGeneration(namedTarget,_buildData.il2CppCodeGeneration);
-            PlayerSettings.SetIl2CppCompilerConfiguration(namedTarget,_buildData.cppCompilerConfiguration);
+                PlayerSettings.SetScriptingBackend(namedTarget, scriptingImplementation);
+                PlayerSettings.SetIl2CppCodeGeneration(namedTarget,_buildData.il2CppCodeGeneration);
+                PlayerSettings.SetIl2CppCompilerConfiguration(namedTarget,_buildData.cppCompilerConfiguration);
+                PlayerSettings.SetManagedStrippingLevel(namedTarget,_buildData.strippingLevel);
+
+                EditorUserBuildSettings.development = buildOptions.IsFlagSet(BuildOptions.Development);
+                EditorUserBuildSettings.connectProfiler = buildOptions.IsFlagSet(BuildOptions.ConnectWithProfiler);
+                EditorUserBuildSettings.buildWithDeepProfilingSupport = buildOptions.IsFlagSet(BuildOptions.EnableDeepProfilingSupport);
+                EditorUserBuildSettings.allowDebugging = buildOptions.IsFlagSet(BuildOptions.AllowDebugging);
+
+                UpdateWebGLData(_buildData.webGlBuildData);
+                UpdateWebGLData(_arguments);
+            }
+
             PlayerSettings.bundleVersion = bundleVersion;
             PlayerSettings.applicationIdentifier = bundleId;
-            PlayerSettings.SetManagedStrippingLevel(namedTarget,_buildData.strippingLevel);
-            
-            UpdateWebGLData(_buildData.webGlBuildData);
-            UpdateWebGLData(_arguments);
-            
-            EditorUserBuildSettings.development = buildOptions.IsFlagSet(BuildOptions.Development);
-            EditorUserBuildSettings.connectProfiler = buildOptions.IsFlagSet(BuildOptions.ConnectWithProfiler);
-            EditorUserBuildSettings.buildWithDeepProfilingSupport =  buildOptions.IsFlagSet(BuildOptions.EnableDeepProfilingSupport);
-            EditorUserBuildSettings.allowDebugging = buildOptions.IsFlagSet(BuildOptions.AllowDebugging);
             
             var file   = outputFile;
             var folder = outputFolder;

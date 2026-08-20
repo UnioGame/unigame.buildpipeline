@@ -2,9 +2,12 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using Editor;
     using global::Editor.Tools;
     using Inspector;
+    using UnityEditor;
+    using UnityEditor.Build.Profile;
     using UnityEngine;
     using UnityEngine.Scripting.APIUpdating;
 
@@ -49,12 +52,36 @@
                 defineValues = string.Empty;
             }
 
-            Execute(defineValues);
+            var profile = configuration.BuildParameters?.buildProfile;
+            if (profile == null)
+            {
+                Execute(defineValues);
+                return;
+            }
+
+            ApplyToProfile(profile, defineValues);
         }
 
         public void Execute(string defineValues)
         {
             EditorSettingsUtility.ApplyDefines(defaultDefines, removeDefines, defineValues);
+        }
+
+        private void ApplyToProfile(BuildProfile profile, string defineValues)
+        {
+            var defines = profile.scriptingDefines
+                .Concat(defineValues.Split(new[] { DefinesSeparator },
+                    StringSplitOptions.RemoveEmptyEntries))
+                .Concat(defaultDefines)
+                .Where(value => !string.IsNullOrWhiteSpace(value) && !removeDefines.Contains(value))
+                .Distinct()
+                .ToArray();
+
+            if (profile.scriptingDefines.SequenceEqual(defines))
+                return;
+
+            profile.scriptingDefines = defines;
+            AssetDatabase.SaveAssetIfDirty(profile);
         }
 
 #if ODIN_INSPECTOR || TRI_INSPECTOR

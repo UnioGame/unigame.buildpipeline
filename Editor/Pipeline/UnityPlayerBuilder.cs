@@ -7,6 +7,7 @@
     using Extensions;
     using Utils;
     using UnityEditor;
+    using UnityEditor.Build.Profile;
     using UnityEditor.Build.Reporting;
 
     public class UnityPlayerBuilder : IUnityPlayerBuilder
@@ -144,23 +145,18 @@
 
         private BuildReport ExecuteBuild(IUniBuilderConfiguration configuration)
         {
-            var scenes = GetBuildInScenes(configuration);
-
             var buildParameters = configuration.BuildParameters;
             var outputLocation = GetTargetBuildLocation(configuration.BuildParameters);
             var buildOptions   = buildParameters.buildOptions;
     
             BuildLogger.Log($"OUTPUT LOCATION : {outputLocation}");
 
-            var scenesArray = scenes.Select(x => x.path).ToArray();
-            
             var buildProfile = buildParameters.buildProfile;
-            
-            BuildReport report = default;
-            
+
+            BuildReport report;
             if (buildProfile != null)
             {
-                report = BuildPipeline.BuildPlayer(new BuildPlayerWithProfileOptions()
+                report = BuildPipeline.BuildPlayer(new BuildPlayerWithProfileOptions
                 {
                     buildProfile = buildProfile,
                     assetBundleManifestPath = string.Empty,
@@ -170,22 +166,24 @@
             }
             else
             {
+                var scenes = GetBuildInScenes(configuration)
+                    .Select(x => x.path)
+                    .ToArray();
                 var buildConfig = new BuildPlayerOptions
                 {
                     locationPathName = outputLocation,
                     target = buildParameters.buildTarget,
 #if UNITY_STANDALONE || UNITY_SERVER
-                subtarget = (int)buildParameters.standaloneBuildSubtarget,
+                    subtarget = (int)buildParameters.standaloneBuildSubtarget,
 #endif
-                    scenes = scenesArray,
+                    scenes = scenes,
                     options = buildOptions,
                     targetGroup = buildParameters.buildTargetGroup,
                 };
-                
                 report = BuildPipeline.BuildPlayer(buildConfig);
-                BuildLogger.Log(report.ReportMessage());
             }
-            
+
+            BuildLogger.Log(report.ReportMessage());
             return report;
         }
 
@@ -198,8 +196,9 @@
         private EditorBuildSettingsScene[] GetBuildInScenes(IUniBuilderConfiguration configuration)
         {
             var parameters = configuration.BuildParameters;
-            var scenes = parameters.scenes.Count > 0 ? parameters.scenes.ToArray() :
-                EditorBuildSettings.scenes;
+            var scenes = parameters.scenes.Count > 0
+                ? parameters.scenes.ToArray()
+                : EditorBuildSettings.scenes;
             return scenes.Where(x => x.enabled).ToArray();
         }
 
