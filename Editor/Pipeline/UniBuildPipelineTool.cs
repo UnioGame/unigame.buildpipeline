@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -186,6 +186,8 @@ namespace UniGame.UniBuild.Editor
         private static UniBuildExecutionResult ExecuteRequestedBuild(UniBuildPipeline pipeline,
             bool autoRun)
         {
+            var pipelineName = pipeline.name;
+            var playerBuildEnabled = pipeline.PlayerBuildEnabled;
             IUniBuildCommandsMap commandsMap = pipeline;
             if (autoRun)
             {
@@ -195,8 +197,8 @@ namespace UniGame.UniBuild.Editor
             }
 
             var report = ExecuteBuild(commandsMap);
-            return new UniBuildExecutionResult(pipeline.name,
-                UniBuildExecutionStatus.Completed, pipeline.PlayerBuildEnabled, report);
+            return new UniBuildExecutionResult(pipelineName,
+                UniBuildExecutionStatus.Completed, playerBuildEnabled, report);
         }
 
         private static void SchedulePendingBuild()
