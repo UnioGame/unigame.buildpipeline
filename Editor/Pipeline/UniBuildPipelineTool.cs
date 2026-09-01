@@ -11,6 +11,7 @@ namespace UniGame.UniBuild.Editor
     using UnityEditor;
     using UnityEditor.Build.Profile;
     using UnityEditor.Build.Reporting;
+    using UnityEditor.Compilation;
     using Object = Object;
 
     public enum UniBuildExecutionStatus
@@ -46,12 +47,22 @@ namespace UniGame.UniBuild.Editor
 
         private const string PendingPipelineGuidKey = "UniBuild.PendingPipelineGuid";
         private const string PendingAutoRunKey = "UniBuild.PendingAutoRun";
+        private const string PreviousProfileGuidKey = "UniBuild.PreviousProfileGuid";
+        private const string PreviousProfileWasGlobalKey = "UniBuild.PreviousProfileWasGlobal";
 
         private static UnityPlayerBuilder builder = new UnityPlayerBuilder();
+        private static bool restoreAfterCompilation;
+        private static bool restoreAfterProjectChange;
 
         static UniBuildPipelineTool()
         {
-            SchedulePendingBuild();
+            if (HasPendingBuild)
+            {
+                SchedulePendingBuild();
+                return;
+            }
+
+            SchedulePreviousBuildProfileRestore();
         }
 
         public static event Action<UniBuildExecutionResult> ExecutionFinished;
@@ -120,12 +131,14 @@ namespace UniGame.UniBuild.Editor
             SessionState.SetBool(PendingAutoRunKey, autoRun);
             try
             {
+                RememberActiveBuildProfile(activeProfile);
                 BuildProfile.SetActiveBuildProfile(profile);
                 SchedulePendingBuild();
             }
             catch
             {
                 ClearPendingBuild();
+                ClearPreviousBuildProfile();
                 throw;
             }
 
@@ -242,7 +255,135 @@ namespace UniGame.UniBuild.Editor
                     exception: exception);
             }
 
-            ExecutionFinished?.Invoke(result);
+            try
+            {
+                ExecutionFinished?.Invoke(result);
+            }
+            finally
+            {
+                SchedulePreviousBuildProfileRestore();
+            }
+        }
+
+        private static void RememberActiveBuildProfile(BuildProfile profile)
+        {
+            if (profile == null)
+            {
+                SessionState.SetString(PreviousProfileGuidKey, string.Empty);
+                SessionState.SetBool(PreviousProfileWasGlobalKey, true);
+                return;
+            }
+
+            var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(profile));
+            if (string.IsNullOrEmpty(guid))
+                throw new InvalidOperationException(
+                    "The active Build Profile must be saved as an asset before UniBuild can restore it.");
+
+            SessionState.SetString(PreviousProfileGuidKey, guid);
+            SessionState.SetBool(PreviousProfileWasGlobalKey, false);
+        }
+
+        private static void SchedulePreviousBuildProfileRestore()
+        {
+            if (DeferPreviousBuildProfileRestore())
+                return;
+            EditorApplication.delayCall -= RestorePreviousBuildProfile;
+            EditorApplication.delayCall += RestorePreviousBuildProfile;
+        }
+
+        private static void RestorePreviousBuildProfile()
+        {
+            if (DeferPreviousBuildProfileRestore())
+                return;
+
+            var wasGlobal = SessionState.GetBool(PreviousProfileWasGlobalKey, false);
+            var guid = SessionState.GetString(PreviousProfileGuidKey, string.Empty);
+            BuildProfile profile = null;
+            if (!wasGlobal)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(path);
+                if (profile == null)
+                {
+                    Debug.LogWarning(
+                        $"Previous UniBuild Build Profile `{guid}` was not found; the active Build Profile was left unchanged.");
+                    ClearPreviousBuildProfile();
+                    return;
+                }
+            }
+
+            try
+            {
+                BuildProfile.SetActiveBuildProfile(profile);
+                ClearPreviousBuildProfile();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+        }
+
+        private static bool DeferPreviousBuildProfileRestore()
+        {
+            if (!HasPreviousBuildProfile() || HasPendingBuild ||
+                BuildPipeline.isBuildingPlayer)
+                return true;
+
+            if (EditorApplication.isCompiling)
+            {
+                SubscribeToCompilationFinished();
+                return true;
+            }
+
+            if (EditorApplication.isUpdating)
+            {
+                SubscribeToProjectChanged();
+                return true;
+            }
+
+            return false;
+        }
+
+        private static void SubscribeToCompilationFinished()
+        {
+            if (restoreAfterCompilation)
+                return;
+
+            restoreAfterCompilation = true;
+            CompilationPipeline.compilationFinished += OnCompilationFinished;
+        }
+
+        private static void OnCompilationFinished(object context)
+        {
+            CompilationPipeline.compilationFinished -= OnCompilationFinished;
+            restoreAfterCompilation = false;
+            SchedulePreviousBuildProfileRestore();
+        }
+
+        private static void SubscribeToProjectChanged()
+        {
+            if (restoreAfterProjectChange)
+                return;
+
+            restoreAfterProjectChange = true;
+            EditorApplication.projectChanged += OnProjectChanged;
+        }
+
+        private static void OnProjectChanged()
+        {
+            EditorApplication.projectChanged -= OnProjectChanged;
+            restoreAfterProjectChange = false;
+            SchedulePreviousBuildProfileRestore();
+        }
+
+        private static bool HasPreviousBuildProfile() =>
+            SessionState.GetBool(PreviousProfileWasGlobalKey, false) ||
+            !string.IsNullOrEmpty(SessionState.GetString(PreviousProfileGuidKey, string.Empty));
+
+        private static void ClearPreviousBuildProfile()
+        {
+            SessionState.EraseString(PreviousProfileGuidKey);
+            SessionState.EraseBool(PreviousProfileWasGlobalKey);
         }
 
         private static void ClearPendingBuild()
