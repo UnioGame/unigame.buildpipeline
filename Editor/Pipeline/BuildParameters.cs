@@ -84,7 +84,7 @@ namespace UniGame.UniBuild.Editor
             if(_buildData.overrideArtifactName && !string.IsNullOrEmpty(_buildData.artifactName))
                 outputFile = _buildData.artifactName;
             
-            outputFile = outputFile.Replace(" ", "_");
+            outputFile = outputFile.Replace(":", "_").Replace(" ", "_");
 
             bundleId = PlayerSettings.applicationIdentifier;
             if(_buildData.overrideBundleName && !string.IsNullOrEmpty(_buildData.bundleName))
@@ -320,7 +320,7 @@ namespace UniGame.UniBuild.Editor
             }
             
             if (arguments.GetStringValue(BuildArguments.BuildOutputNameKey,
-                    out var outputFileValue))
+                    out var outputFileValue) && !string.IsNullOrWhiteSpace(outputFileValue))
             {
                 outputFile = outputFileValue;
             }
@@ -336,9 +336,6 @@ namespace UniGame.UniBuild.Editor
             arguments.GetStringValue(BuildArguments.BuildOutputFolderKey,
                 out var folder, BuildFolder);
             outputFolder = folder;
-
-            arguments.GetStringValue(BuildArguments.BuildOutputNameKey, out var file, string.Empty);
-            outputFile = file;
             
             arguments.SetValue(BuildArguments.BuildNumberKey, buildNumber.ToString());
             arguments.SetValue(BuildArguments.BuildOutputFolderKey, outputFolder);

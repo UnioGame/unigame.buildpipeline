@@ -1,7 +1,8 @@
-﻿namespace UniGame.UniBuild.Editor
+namespace UniGame.UniBuild.Editor
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
     using Abstract;
     using Extensions;
@@ -9,6 +10,9 @@
     using UnityEditor;
     using UnityEditor.Build.Profile;
     using UnityEditor.Build.Reporting;
+#if UNITY_ANDROID
+    using UnityEditor.Android;
+#endif
 
     public class UnityPlayerBuilder : IUnityPlayerBuilder
     {
@@ -74,6 +78,12 @@
         {
             var file   = buildParameters.outputFile;
             var folder = buildParameters.outputFolder;
+            if (string.IsNullOrWhiteSpace(file))
+                file = string.IsNullOrWhiteSpace(buildParameters.productName) ? "artifact" : buildParameters.productName;
+            if (buildParameters.buildTarget == BuildTarget.Android &&
+                !EditorUserBuildSettings.exportAsGoogleAndroidProject &&
+                !Path.HasExtension(file))
+                file += EditorUserBuildSettings.buildAppBundle ? ".aab" : ".apk";
             var artifactPath = folder.CombinePath(file);
             
             buildParameters.artifactPath = artifactPath;
@@ -146,6 +156,11 @@
         private BuildReport ExecuteBuild(IUniBuilderConfiguration configuration)
         {
             var buildParameters = configuration.BuildParameters;
+#if UNITY_ANDROID
+            var gradlePath = Environment.GetEnvironmentVariable("UNITY_GRADLE_HOME");
+            if (buildParameters.buildTarget == BuildTarget.Android && !string.IsNullOrWhiteSpace(gradlePath))
+                AndroidExternalToolsSettings.gradlePath = gradlePath;
+#endif
             var outputLocation = GetTargetBuildLocation(configuration.BuildParameters);
             var buildOptions   = buildParameters.buildOptions;
     
@@ -184,6 +199,8 @@
             }
 
             BuildLogger.Log(report.ReportMessage());
+            if (report.summary.result != BuildResult.Succeeded)
+                throw new InvalidOperationException($"Player build failed: {report.summary.result}");
             return report;
         }
 
