@@ -266,7 +266,7 @@ namespace UniGame.UniBuild.Editor
 
             bundleVersion = PlayerSettings.bundleVersion;
             if(arguments.GetStringValue(BuildArguments.BundleVersionKey,out var bundleVersionValue))
-                bundleVersion = branchValue;
+                bundleVersion = bundleVersionValue;
             
             if (arguments.GetStringValue(BuildArguments.Linux64BuildTargetKey, out var linuxPath))
             {
